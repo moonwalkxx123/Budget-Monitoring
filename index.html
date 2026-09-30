@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monthly Budget Tracker (PHP)</title>
+  <!-- html2pdf Library for Client-Side PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    /* ==========================================================================
+       3-COLOR PALETTE & CSS VARIABLES
+       - Off-White: #F9F9FB
+       - Light Gray: #E4E7EB / #EEF0F3
+       - Dark Gray: #1F2937 / #111827
+       ========================================================================== */
+    :root {
+      --bg-color: #F9F9FB;        /* Off-White */
+      --card-bg: #FFFFFF;         /* Pure Off-White Card */
+      --border-color: #E4E7EB;    /* Light Gray Border */
+      --light-gray: #EEF0F3;      /* Accent Light Gray */
+      --medium-gray: #9CA3AF;     /* Text Muted */
+      --dark-gray: #1F2937;       /* Primary Dark Gray */
+      --dark-gray-hover: #111827; /* Deep Dark Gray */
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--dark-gray);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1050px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header Styling */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--card-bg);
+      padding: 20px 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      gap: 15px;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    header .sub-text {
+      font-size: 0.875rem;
+      color: var(--medium-gray);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--medium-gray);
+      margin-bottom: 8px;
+    }
+
+    .card .amount {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    /* Main Content Layout (Grid on Desktop, Flex Column on Mobile) */
+    .main-content {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        display: flex;
+        flex-direction: column;
+      }
+    }
+
+    /* Form & Input Fields */
+    form, .fund-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-color);
+      color: var(--dark-gray);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--dark-gray);
+    }
+
+    /* Manage Funds Section */
+    .manage-funds-box {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s, opacity 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background-color: var(--dark-gray);
+      color: var(--bg-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--dark-gray-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--light-gray);
+      color: var(--dark-gray);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    /* Transaction Table */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background-color: var(--light-gray);
+      padding: 12px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      background-color: var(--light-gray);
+      border: 1px solid var(--border-color);
+    }
+
+    .badge-in {
+      background-color: var(--dark-gray);
+      color: var(--bg-color);
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--medium-gray);
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    .delete-btn:hover {
+      color: var(--dark-gray);
+    }
+
+    /* PDF Export Area Styling */
+    #pdf-area {
+      background-color: var(--card-bg);
+      padding: 10px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header Section -->
+    <header>
+      <div>
+        <h1>Budget Tracker</h1>
+        <div class="sub-text" id="current-month-display">Month: --</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="exportPDF()">
+          Download PDF Report
+        </button>
+      </div>
+    </header>
+
+    <!-- Summary Cards (Grid) -->
+    <div class="summary-grid">
+      <div class="card">
+        <h3>Total Money In</h3>
+        <div class="amount" id="total-in">₱0.00</div>
+      </div>
+      <div class="card">
+        <h3>Total Money Out</h3>
+        <div class="amount" id="total-out">₱0.00</div>
+      </div>
+      <div class="card">
+        <h3>Remaining Balance</h3>
+        <div class="amount" id="total-balance">₱0.00</div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="main-content">
+      <!-- Input Forms Side -->
+      <div class="card">
+        <!-- Add / Top Up Money Section -->
+        <div class="manage-funds-box">
+          <h3 style="margin-bottom: 12px; color: var(--dark-gray);">Add Funds / Top Up</h3>
+          <div class="fund-form">
+            <div class="form-group">
+              <label for="add-money-input">Amount to Add (₱)</label>
+              <input type="number" id="add-money-input" step="0.01" min="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label for="add-money-source">Source / Note (Where is it from?)</label>
+              <input type="text" id="add-money-source" placeholder="e.g., Cash on Hand, Freelance, Bonus" />
+            </div>
+            <button class="btn btn-secondary" onclick="addFunds()">+ Add Funds</button>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom: 16px; color: var(--dark-gray);">Add Transaction</h3>
+        <form id="transaction-form">
+          <div class="form-group">
+            <label for="date">Transaction Date</label>
+            <input type="date" id="date" required />
+          </div>
+
+          <div class="form-group">
+            <label for="type">Type</label>
+            <select id="type" required>
+              <option value="out">Money Out (Expense)</option>
+              <option value="in">Money In (Income)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" required>
+              <option value="Income">Income / Salary</option>
+              <option value="Gas for Car">Gas for Car</option>
+              <option value="Food">Food</option>
+              <option value="Rent">Rent</option>
+              <option value="Water">Water</option>
+              <option value="Electric Bill">Electric Bill</option>
+              <option value="Dog Food">Dog Food</option>
+              <option value="Miscellaneous">Miscellaneous</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="amount">Amount (₱)</label>
+            <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required />
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description (Optional)</label>
+            <input type="text" id="description" placeholder="Short description..." />
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+            Add Entry
+          </button>
+        </form>
+      </div>
+
+      <!-- Transaction Log Area (Exported to PDF) -->
+      <div class="card" id="pdf-area">
+        <h3 style="margin-bottom: 16px; color: var(--dark-gray);">Current Month Statement</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th class="action-header">Action</th>
+              </tr>
+            </thead>
+            <tbody id="transaction-list">
+              <!-- Dynamic Rows inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let transactions = [];
+    let currentMonthKey = "";
+
+    // Formatter for Philippine Peso currency display
+    const pesoFormatter = new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2
+    });
+
+    // Format YYYY-MM-DD input date to readable string
+    function formatDateDisplay(dateString) {
+      if (!dateString) return "-";
+      const parts = dateString.split("-");
+      const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+      return dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // Generate Month Key (YYYY-MM)
+    function getCurrentMonthKey() {
+      const date = new Date();
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    // Format readable month title for header
+    function getFormattedMonth() {
+      const date = new Date();
+      return date.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+    }
+
+    // Set Date input default value to today (YYYY-MM-DD format)
+    function setDefaultDateInput() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById("date").value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Get today's raw YYYY-MM-DD string
+    function getTodayRawDate() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Add money / top-up funds with note & log to statement
+    function addFunds() {
+      const amountEl = document.getElementById("add-money-input");
+      const sourceEl = document.getElementById("add-money-source");
+
+      const addAmount = parseFloat(amountEl.value);
+      const sourceNote = sourceEl.value.trim() || "Top Up / Add Funds";
+
+      if (!isNaN(addAmount) && addAmount > 0) {
+        // Create an incoming transaction log entry for monitoring
+        const newTransaction = {
+          id: Date.now(),
+          date: getTodayRawDate(),
+          type: 'in',
+          category: 'Money Added',
+          description: sourceNote,
+          amount: addAmount
+        };
+
+        transactions.unshift(newTransaction);
+        transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Reset Fund Input fields
+        amountEl.value = "";
+        sourceEl.value = "";
+
+        saveData();
+        render();
+      }
+    }
+
+    // Initialize & Handle Monthly Reset
+    function initApp() {
+      const nowKey = getCurrentMonthKey();
+      const savedMonthKey = localStorage.getItem("budget_month_key");
+
+      document.getElementById("current-month-display").innerText = `Statement Period: ${getFormattedMonth()}`;
+      setDefaultDateInput();
+
+      // Automatic Reset Logic if a new month starts
+      if (savedMonthKey !== nowKey) {
+        localStorage.setItem("budget_month_key", nowKey);
+        localStorage.setItem("budget_transactions", JSON.stringify([]));
+        transactions = [];
+      } else {
+        const storedData = localStorage.getItem("budget_transactions");
+        transactions = storedData ? JSON.parse(storedData) : [];
+      }
+
+      currentMonthKey = nowKey;
+      render();
+    }
+
+    // Save state to LocalStorage
+    function saveData() {
+      localStorage.setItem("budget_transactions", JSON.stringify(transactions));
+    }
+
+    // Add new transaction
+    document.getElementById("transaction-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const rawDate = document.getElementById("date").value;
+      const type = document.getElementById("type").value;
+      const category = document.getElementById("category").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      const description = document.getElementById("description").value.trim() || "-";
+
+      const newTransaction = {
+        id: Date.now(),
+        date: rawDate,
+        type,
+        category,
+        description,
+        amount
+      };
+
+      transactions.unshift(newTransaction);
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      saveData();
+      render();
+
+      // Reset Form fields
+      document.getElementById("amount").value = "";
+      document.getElementById("description").value = "";
+      setDefaultDateInput();
+    });
+
+    // Delete transaction
+    function deleteTransaction(id) {
+      transactions = transactions.filter(item => item.id !== id);
+      saveData();
+      render();
+    }
+
+    // Calculate Totals and Render UI
+    function render() {
+      const listEl = document.getElementById("transaction-list");
+      listEl.innerHTML = "";
+
+      let totalIn = 0;
+      let totalOut = 0;
+
+      if (transactions.length === 0) {
+        listEl.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--medium-gray); padding: 20px;">No entries recorded for this month.</td></tr>`;
+      } else {
+        transactions.forEach(t => {
+          if (t.type === "in") totalIn += t.amount;
+          if (t.type === "out") totalOut += t.amount;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${formatDateDisplay(t.date)}</td>
+            <td><span class="badge ${t.type === 'in' ? 'badge-in' : ''}">${t.type === 'in' ? 'IN' : 'OUT'}</span></td>
+            <td><strong>${t.category}</strong></td>
+            <td>${t.description}</td>
+            <td>${pesoFormatter.format(t.amount)}</td>
+            <td class="action-header">
+              <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="Delete">&times;</button>
+            </td>
+          `;
+          listEl.appendChild(tr);
+        });
+      }
+
+      const balance = totalIn - totalOut;
+
+      document.getElementById("total-in").innerText = pesoFormatter.format(totalIn);
+      document.getElementById("total-out").innerText = pesoFormatter.format(totalOut);
+      document.getElementById("total-balance").innerText = pesoFormatter.format(balance);
+    }
+
+    // Export PDF function
+    function exportPDF() {
+      const actionHeaders = document.querySelectorAll('.action-header');
+      actionHeaders.forEach(el => el.style.display = 'none');
+
+      const element = document.getElementById("pdf-area");
+      const filename = `Budget_Statement_${currentMonthKey}.pdf`;
+
+      const options = {
+        margin: 0.5,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(options).from(element).save().then(() => {
+        actionHeaders.forEach(el => el.style.display = '');
+      });
+    }
+
+    // Start application
+    initApp();
+  </script>
+</body>
+</html>
